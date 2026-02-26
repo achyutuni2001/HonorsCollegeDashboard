@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 29% 97%;
+    --foreground: 215 28% 17%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+    --primary: 212 70% 33%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 24% 93%;
+    --secondary-foreground: 215 25% 26%;
+    --accent: 191 62% 36%;
+    --accent-foreground: 210 40% 98%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 42%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
+    --ring: 212 70% 33%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 35% 10%;
+    --foreground: 210 40% 96%;
+    --card: 222 30% 14%;
+    --card-foreground: 210 40% 96%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 20% 18%;
+    --secondary-foreground: 210 40% 96%;
+    --accent: 188 85% 45%;
+    --accent-foreground: 222 47% 11%;
+    --muted: 222 18% 18%;
+    --muted-foreground: 215 20% 72%;
+    --border: 222 18% 24%;
+    --input: 222 18% 24%;
+    --ring: 213 94% 68%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.dashboard-grid {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.tile-glow {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.tile-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
+}
+
+.dark .tile-glow:hover {
+  box-shadow: 0 12px 28px rgba(45, 212, 191, 0.1);
+}
