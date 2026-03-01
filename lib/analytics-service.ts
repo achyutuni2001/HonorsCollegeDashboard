@@ -20,6 +20,7 @@ import type {
   SemesterTrendsResponse,
   SummaryResponse
 } from "@/types/analytics";
+import { logAuditEvent } from "@/lib/audit-service";
 
 function sortAlpha(values: Array<string | null | undefined>) {
   return values
@@ -62,7 +63,10 @@ export async function listDatasets(): Promise<DatasetsResponse> {
   }));
 }
 
-export async function deleteDatasetById(datasetId: string) {
+export async function deleteDatasetById(
+  datasetId: string,
+  actor?: { name: string; role: "admin" | "viewer" }
+) {
   const existing = await db
     .select({
       id: datasets.id,
@@ -79,6 +83,19 @@ export async function deleteDatasetById(datasetId: string) {
 
   await db.delete(datasets).where(eq(datasets.id, datasetId));
 
+  if (actor) {
+    await logAuditEvent({
+      datasetId,
+      action: "DELETE",
+      actorName: actor.name,
+      actorRole: actor.role,
+      details: {
+        semesterLabel: existing[0].semesterLabel,
+        rowCount: toNumber(existing[0].rowCount)
+      }
+    });
+  }
+
   return {
     id: existing[0].id,
     semesterLabel: existing[0].semesterLabel,
@@ -86,12 +103,16 @@ export async function deleteDatasetById(datasetId: string) {
   };
 }
 
-export async function renameDatasetById(datasetId: string, semesterLabel: string) {
+export async function renameDatasetById(
+  datasetId: string,
+  semesterLabel: string,
+  actor?: { name: string; role: "admin" | "viewer" }
+) {
   const nextLabel = semesterLabel.trim();
   if (!nextLabel) throw new Error("Semester label is required");
 
   const existing = await db
-    .select({ id: datasets.id })
+    .select({ id: datasets.id, semesterLabel: datasets.semesterLabel })
     .from(datasets)
     .where(eq(datasets.id, datasetId))
     .limit(1);
@@ -107,6 +128,19 @@ export async function renameDatasetById(datasetId: string, semesterLabel: string
       updatedAt: new Date()
     })
     .where(eq(datasets.id, datasetId));
+
+  if (actor) {
+    await logAuditEvent({
+      datasetId,
+      action: "RENAME",
+      actorName: actor.name,
+      actorRole: actor.role,
+      details: {
+        previousSemesterLabel: existing[0].semesterLabel,
+        nextSemesterLabel: nextLabel
+      }
+    });
+  }
 
   return {
     id: datasetId,
@@ -129,8 +163,12 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
   if (!dataset) throw new Error("Dataset not found");
 
   const baseConditions = buildStudentFilterConditions(filters);
-  const baseWhere = andAll(baseConditions);
+  const excludeAtlantaCampus = sql<boolean>`
+    coalesce(lower(trim(${studentRecords.campus})), '') <> 'atlanta'
+  `;
+  const baseWhere = andAll([...baseConditions, excludeAtlantaCampus]);
   const datasetOnly = eq(studentRecords.datasetId, filters.datasetId);
+  const datasetOnlyWhere = and(datasetOnly, excludeAtlantaCampus);
   const genderExpr = sql<string>`
     coalesce(nullif(trim(${studentRecords.raw} ->> 'GENDER'), ''), 'Unknown')
   `;
@@ -171,6 +209,7 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
     avgRows,
     campusesDistinctFiltered,
     byCampusRows,
+    byCampusPerformanceRows,
     byStudentTypeRows,
     byCampusStandingRows,
     majorAggRows,
@@ -210,6 +249,16 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
       .orderBy(sql`count(*) DESC`),
     db
       .select({
+        campus: studentRecords.campus,
+        averageGpa: sql<number | null>`avg(${studentRecords.gpa})::float`,
+        count: sql<number>`count(*)::int`
+      })
+      .from(studentRecords)
+      .where(baseWhere)
+      .groupBy(studentRecords.campus)
+      .orderBy(sql`avg(${studentRecords.gpa}) DESC`),
+    db
+      .select({
         studentType: studentRecords.studentType,
         count: sql<number>`count(*)::int`
       })
@@ -247,7 +296,7 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(studentRecords)
-      .where(and(datasetOnly, isNotNull(studentRecords.dualEnrollment))),
+      .where(and(datasetOnlyWhere, isNotNull(studentRecords.dualEnrollment))),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(studentRecords)
@@ -255,26 +304,26 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
     db
       .selectDistinct({ campus: studentRecords.campus })
       .from(studentRecords)
-      .where(datasetOnly),
+      .where(datasetOnlyWhere),
     db
       .selectDistinct({ majorDescription: studentRecords.majorDescription })
       .from(studentRecords)
-      .where(datasetOnly),
+      .where(datasetOnlyWhere),
     db
       .selectDistinct({ classStanding: studentRecords.classStanding })
       .from(studentRecords)
-      .where(datasetOnly),
+      .where(datasetOnlyWhere),
     db
       .selectDistinct({ studentType: studentRecords.studentType })
       .from(studentRecords)
-      .where(datasetOnly),
+      .where(datasetOnlyWhere),
     db
       .select({
         minGpa: sql<number | null>`min(${studentRecords.gpa})::float`,
         maxGpa: sql<number | null>`max(${studentRecords.gpa})::float`
       })
       .from(studentRecords)
-      .where(datasetOnly),
+      .where(datasetOnlyWhere),
     db
       .select({
         gender: genderExpr,
@@ -359,6 +408,11 @@ export async function getDashboardSummary(filters: DashboardFilters): Promise<Su
         campus: row.campus ?? "Unknown",
         count: toNumber(row.count)
       })),
+      averageGpaByCampus: byCampusPerformanceRows.map((row) => ({
+        campus: row.campus ?? "Unknown",
+        averageGpa: toNullableNumber(row.averageGpa),
+        count: toNumber(row.count)
+      })),
       studentsByStudentType: byStudentTypeRows.map((row) => ({
         studentType: row.studentType ?? "Unknown",
         count: toNumber(row.count)
@@ -417,9 +471,15 @@ export async function getSemesterTrends(
     .limit(1);
   if (!datasetFilterRows.length) throw new Error("Dataset not found");
 
-  const crossWhere = andAll(buildCrossDatasetFilterConditions(filters));
+  const excludeAtlantaCampus = sql<boolean>`
+    coalesce(lower(trim(${studentRecords.campus})), '') <> 'atlanta'
+  `;
+  const crossWhere = andAll([
+    ...buildCrossDatasetFilterConditions(filters),
+    excludeAtlantaCampus
+  ]);
 
-  const [datasetRows, aggRows] = await Promise.all([
+  const [datasetRows, aggRows, campusAggRows] = await Promise.all([
     db
       .select({
         id: datasets.id,
@@ -442,7 +502,17 @@ export async function getSemesterTrends(
       })
       .from(studentRecords)
       .where(crossWhere)
-      .groupBy(studentRecords.datasetId)
+      .groupBy(studentRecords.datasetId),
+    db
+      .select({
+        datasetId: studentRecords.datasetId,
+        campus: studentRecords.campus,
+        totalStudents: sql<number>`count(*)::int`,
+        averageGpa: sql<number | null>`avg(${studentRecords.gpa})::float`
+      })
+      .from(studentRecords)
+      .where(crossWhere)
+      .groupBy(studentRecords.datasetId, studentRecords.campus)
   ]);
 
   const aggByDataset = new Map(
@@ -454,6 +524,16 @@ export async function getSemesterTrends(
         campusesRepresented: toNumber(row.campusesRepresented),
         dualEnrollmentCount: toNumber(row.dualEnrollmentCount),
         dualEnrollmentAvailableCount: toNumber(row.dualEnrollmentAvailableCount)
+      }
+    ])
+  );
+
+  const datasetMeta = new Map(
+    datasetRows.map((row) => [
+      row.id,
+      {
+        semesterLabel: row.semesterLabel,
+        createdAt: new Date(row.createdAt).toISOString()
       }
     ])
   );
@@ -476,13 +556,32 @@ export async function getSemesterTrends(
         dualEnrollmentCount: agg?.dualEnrollmentCount ?? 0,
         dualEnrollmentPct: dualPct
       };
-    })
+    }),
+    campusRows: campusAggRows
+      .map((row) => {
+        const meta = datasetMeta.get(row.datasetId);
+        if (!meta) return null;
+        return {
+          datasetId: row.datasetId,
+          semesterLabel: meta.semesterLabel,
+          createdAt: meta.createdAt,
+          campus: row.campus?.trim() ? row.campus : "Unknown",
+          totalStudents: toNumber(row.totalStudents),
+          averageGpa: toNullableNumber(row.averageGpa)
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null)
   };
 }
 
 type RecordsQuery = DashboardFilters & {
   page: number;
   pageSize: number;
+  sortField: string;
+  sortDirection: "asc" | "desc";
+};
+
+type RecordsExportQuery = DashboardFilters & {
   sortField: string;
   sortDirection: "asc" | "desc";
 };
@@ -548,4 +647,43 @@ export async function getDashboardRecords(query: RecordsQuery): Promise<RecordsR
       campus: row.campus
     }))
   };
+}
+
+export async function getDashboardRecordsForExport(query: RecordsExportQuery) {
+  const conditions = buildStudentFilterConditions(query);
+  const where = andAll(conditions);
+
+  const sortField = query.sortField in sortableFields ? query.sortField : "gpa";
+  const direction = query.sortDirection === "asc" ? "asc" : "desc";
+  const sortColumn = sortableFields[sortField as keyof typeof sortableFields];
+
+  const rows = await db
+    .select({
+      id: studentRecords.id,
+      pantherId: studentRecords.pantherId,
+      firstName: studentRecords.firstName,
+      lastName: studentRecords.lastName,
+      fullName: studentRecords.fullName,
+      gpa: studentRecords.gpa,
+      majorDescription: studentRecords.majorDescription,
+      campus: studentRecords.campus,
+      classStanding: studentRecords.classStanding,
+      studentType: studentRecords.studentType
+    })
+    .from(studentRecords)
+    .where(where)
+    .orderBy(direction === "asc" ? asc(sortColumn) : desc(sortColumn), asc(studentRecords.id));
+
+  return rows.map((row) => ({
+    id: String(row.id),
+    pantherId: row.pantherId,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    fullName: row.fullName,
+    gpa: toNullableNumber(row.gpa),
+    majorDescription: row.majorDescription,
+    campus: row.campus,
+    classStanding: row.classStanding,
+    studentType: row.studentType
+  }));
 }

@@ -51,10 +51,37 @@
 }
 
 .dashboard-grid {
+  position: relative;
+  isolation: isolate;
+  background-color: hsl(var(--background));
   background-image:
     linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+.dashboard-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 10% 4%, rgba(56, 189, 248, 0.12), transparent 38%),
+    radial-gradient(circle at 88% 10%, rgba(74, 222, 128, 0.1), transparent 36%),
+    radial-gradient(circle at 50% 100%, rgba(251, 191, 36, 0.09), transparent 42%),
+    radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.08), transparent 40%);
+  background-size: 140% 140%;
+  animation: dashboardAurora 18s ease-in-out infinite alternate;
+}
+
+.dashboard-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.45), transparent 58%);
 }
 
 .tile-glow {
@@ -71,4 +98,59 @@
 
 .dark .tile-glow:hover {
   box-shadow: 0 12px 28px rgba(45, 212, 191, 0.1);
+}
+
+@keyframes dashboardAurora {
+  0% {
+    background-position: 0% 40%;
+    filter: saturate(1);
+  }
+  50% {
+    background-position: 100% 60%;
+    filter: saturate(1.08);
+  }
+  100% {
+    background-position: 40% 0%;
+    filter: saturate(1);
+  }
+}
+
+.pdf-export-only {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .dashboard-grid {
+    background: #ffffff !important;
+    background-image: none !important;
+  }
+
+  .dashboard-grid::before,
+  .dashboard-grid::after {
+    display: none !important;
+  }
+
+  .pdf-export-hide {
+    display: none !important;
+  }
+
+  .pdf-export-only {
+    display: block !important;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  .tile-glow {
+    box-shadow: none !important;
+    transform: none !important;
+  }
 }

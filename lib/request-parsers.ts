@@ -46,3 +46,19 @@ export function parseRecordsParams(input: URLSearchParams) {
   const parsed = schema.parse(Object.fromEntries(input.entries()));
   return { ...filters, ...parsed };
 }
+
+export function parseRecordsExportParams(input: URLSearchParams) {
+  const filters = parseDashboardFilters(input);
+  const schema = z.object({
+    sortField: z.string().default("gpa"),
+    sortDirection: z.enum(["asc", "desc"]).default("desc"),
+    search: z.string().optional()
+  });
+  const parsed = schema.parse(Object.fromEntries(input.entries()));
+  return {
+    ...filters,
+    search: parsed.search || filters.search,
+    sortField: parsed.sortField,
+    sortDirection: parsed.sortDirection
+  };
+}

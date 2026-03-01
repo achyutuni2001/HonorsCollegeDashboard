@@ -2,13 +2,22 @@ import * as XLSX from "xlsx";
 import { db } from "@/lib/db";
 import { datasets, studentRecords } from "@/db/schema";
 import { mapRosterRows } from "@/lib/roster-mapping";
+import { logAuditEvent } from "@/lib/audit-service";
 
 type UploadInput = {
   fileName: string;
   mimeType?: string;
-  semesterLabel: string;
+  semesterLabel?: string;
   fileBuffer: Buffer;
+  actorName?: string;
+  actorRole?: "admin" | "viewer";
 };
+
+function deriveSemesterLabel(fileName: string, explicitLabel?: string) {
+  const cleanedExplicit = explicitLabel?.trim();
+  if (cleanedExplicit) return cleanedExplicit;
+  return fileName.trim() || "Uploaded Dataset";
+}
 
 export async function ingestRosterDataset(input: UploadInput) {
   const workbook = XLSX.read(input.fileBuffer, { type: "buffer", cellDates: false });
@@ -23,6 +32,7 @@ export async function ingestRosterDataset(input: UploadInput) {
     raw: true
   });
   const rows = mapRosterRows(rawRows);
+  const semesterLabel = deriveSemesterLabel(input.fileName, input.semesterLabel);
 
   const datasetId = crypto.randomUUID().replace(/-/g, "");
   const now = new Date();
@@ -30,7 +40,7 @@ export async function ingestRosterDataset(input: UploadInput) {
   await db.transaction(async (tx) => {
     await tx.insert(datasets).values({
       id: datasetId,
-      semesterLabel: input.semesterLabel,
+      semesterLabel,
       sourceFileName: input.fileName,
       sourceMimeType: input.mimeType,
       rowCount: rows.length,
@@ -61,9 +71,23 @@ export async function ingestRosterDataset(input: UploadInput) {
     }
   });
 
+  if (input.actorName) {
+    await logAuditEvent({
+      datasetId,
+      action: "UPLOAD",
+      actorName: input.actorName,
+      actorRole: input.actorRole ?? "admin",
+      details: {
+        semesterLabel,
+        sourceFileName: input.fileName,
+        rowCount: rows.length
+      }
+    });
+  }
+
   return {
     id: datasetId,
-    semesterLabel: input.semesterLabel,
+    semesterLabel,
     rowCount: rows.length
   };
 }

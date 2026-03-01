@@ -3,7 +3,7 @@ import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { requireSession } from "@/lib/require-session";
 import { getRoleForEmail } from "@/lib/access-control";
 
-export default async function DashboardPage({
+export default async function AcademicDashboardPage({
   searchParams
 }: {
   searchParams?: { datasetId?: string };
@@ -22,7 +22,7 @@ export default async function DashboardPage({
       initialDatasets={datasets}
       initialDatasetId={initialDatasetId}
       initialUserRole={initialUserRole}
-      section="overview"
+      section="academic"
     />
   );
 }
