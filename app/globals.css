@@ -23,21 +23,21 @@
   }
 
   .dark {
-    --background: 222 35% 10%;
-    --foreground: 210 40% 96%;
-    --card: 222 30% 14%;
-    --card-foreground: 210 40% 96%;
-    --primary: 213 94% 68%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 222 20% 18%;
-    --secondary-foreground: 210 40% 96%;
-    --accent: 188 85% 45%;
-    --accent-foreground: 222 47% 11%;
-    --muted: 222 18% 18%;
-    --muted-foreground: 215 20% 72%;
-    --border: 222 18% 24%;
-    --input: 222 18% 24%;
-    --ring: 213 94% 68%;
+    --background: 228 45% 8%;
+    --foreground: 235 35% 95%;
+    --card: 229 38% 12%;
+    --card-foreground: 235 35% 95%;
+    --primary: 234 86% 66%;
+    --primary-foreground: 230 50% 10%;
+    --secondary: 231 28% 18%;
+    --secondary-foreground: 235 35% 95%;
+    --accent: 266 75% 64%;
+    --accent-foreground: 230 50% 10%;
+    --muted: 231 22% 16%;
+    --muted-foreground: 232 20% 76%;
+    --border: 231 24% 25%;
+    --input: 231 24% 25%;
+    --ring: 266 75% 64%;
   }
 
   * {
@@ -82,6 +82,28 @@
   z-index: -1;
   pointer-events: none;
   background-image: radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.45), transparent 58%);
+}
+
+.dark .dashboard-grid {
+  background-color: hsl(var(--background));
+  background-image:
+    linear-gradient(to right, rgba(99, 102, 241, 0.11) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 92, 246, 0.1) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+.dark .dashboard-grid::before {
+  background-image:
+    radial-gradient(circle at 10% 8%, rgba(96, 165, 250, 0.2), transparent 40%),
+    radial-gradient(circle at 88% 14%, rgba(139, 92, 246, 0.24), transparent 38%),
+    radial-gradient(circle at 56% 98%, rgba(99, 102, 241, 0.2), transparent 42%),
+    radial-gradient(circle at 30% 44%, rgba(168, 85, 247, 0.16), transparent 40%);
+  background-size: 150% 150%;
+  animation: dashboardAurora 22s ease-in-out infinite alternate;
+}
+
+.dark .dashboard-grid::after {
+  background-image: radial-gradient(circle at 50% -5%, rgba(199, 210, 254, 0.14), transparent 55%);
 }
 
 .tile-glow {

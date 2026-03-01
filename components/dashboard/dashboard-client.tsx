@@ -256,20 +256,20 @@ function KpiCard({
 }) {
   const toneStyles =
     tone === "teal"
-      ? "border-teal-200 bg-gradient-to-br from-teal-50 to-white"
+      ? "border-teal-200 bg-gradient-to-br from-teal-50 to-white dark:border-teal-500/35 dark:from-teal-950/30 dark:to-slate-900"
       : tone === "amber"
-        ? "border-amber-200 bg-gradient-to-br from-amber-50 to-white"
+        ? "border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-500/35 dark:from-amber-950/25 dark:to-slate-900"
         : tone === "violet"
-          ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-white"
-          : "border-blue-200 bg-gradient-to-br from-blue-50 to-white";
+          ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-white dark:border-indigo-500/35 dark:from-indigo-950/30 dark:to-slate-900"
+          : "border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:border-blue-500/35 dark:from-blue-950/30 dark:to-slate-900";
   const valueStyles =
     tone === "teal"
-      ? "text-teal-700"
+      ? "text-teal-700 dark:text-teal-300"
       : tone === "amber"
-        ? "text-amber-700"
+        ? "text-amber-700 dark:text-amber-300"
         : tone === "violet"
-          ? "text-indigo-700"
-          : "text-blue-700";
+          ? "text-indigo-700 dark:text-indigo-300"
+          : "text-blue-700 dark:text-blue-300";
   return (
     <Card className={`tile-glow ${toneStyles}`}>
       <CardContent className="p-5">
@@ -465,16 +465,30 @@ function InstitutionalHeader({
   onOpenAccessSettings: () => void;
 }) {
   const profileInitials = getUserInitials(userName, userEmail);
+  const heroImages = [
+    "/image%203.jpg",
+    "/image%204.jpg",
+    "/gsu-cover-photo.jpg"
+  ];
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setHeroImageIndex((prev) => (prev + 1) % heroImages.length);
+    }, 3000);
+    return () => window.clearInterval(intervalId);
+  }, [heroImages.length]);
+
   return (
     <header className="overflow-hidden rounded-2xl border bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div className="flex min-h-14 items-center justify-between border-b px-4 py-2 dark:border-slate-700 md:px-5">
         <div className="flex w-full min-h-12 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 overflow-hidden rounded-md border bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="h-16 w-16 overflow-hidden">
               <img
-                src="/gsu-logo.png"
+                src="/GSU.png"
                 alt="Georgia State University logo"
-                className="h-full w-full object-contain"
+                className="h-full w-full object-contain dark:brightness-0 dark:invert"
               />
             </div>
             <div>
@@ -534,12 +548,17 @@ function InstitutionalHeader({
             </div>
           </div>
           <div className="overflow-hidden rounded-lg border bg-black/5 dark:border-slate-700 dark:bg-slate-950/40">
-            <div className="relative h-[92px] w-full md:h-[110px]">
-              <img
-                src="/gsu-cover-photo.jpg"
-                alt="Georgia State University Atlanta skyline banner"
-                className="block h-full w-full object-cover object-center"
-              />
+            <div className="relative h-[122px] w-full md:h-[152px]">
+              {heroImages.map((src, index) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt="Georgia State University Atlanta skyline banner"
+                  className={`absolute inset-0 block h-full w-full object-cover object-center transition-all duration-[1200ms] ease-in-out ${
+                    index === heroImageIndex ? "scale-105 opacity-100" : "scale-110 opacity-0"
+                  }`}
+                />
+              ))}
             </div>
           </div>
           <div className="flex items-center justify-end gap-2 md:col-span-2 md:hidden">
