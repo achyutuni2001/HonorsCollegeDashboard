@@ -251,7 +251,7 @@ export default function SignInPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#0f43ad]/50 via-[#0f43ad]/70 to-[#0b2f6b]/90" />
           <div className="relative z-10 flex h-full flex-col items-center justify-center p-10 text-center text-white">
-            <div className="mb-4 h-20 w-20 overflow-hidden rounded-xl border border-white/20 bg-white/10 backdrop-blur">
+            <div className="mb-4 h-24 w-24 overflow-hidden rounded-xl border border-white/20 bg-white/10 backdrop-blur">
               <img src="/gsu-logo.png" alt="GSU Logo" className="h-full w-full object-contain p-2" />
             </div>
             <h2 className="text-3xl font-semibold tracking-tight">Perimeter Honors College</h2>
