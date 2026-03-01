@@ -19,7 +19,13 @@ import {
   YAxis
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCampusName, formatClassStanding, formatGpa, formatNumber } from "@/lib/utils";
+import {
+  formatCampusName,
+  formatClassStanding,
+  formatGpa,
+  formatNumber,
+  formatSemesterLabel
+} from "@/lib/utils";
 
 const palette = [
   "#2563eb", // blue
@@ -208,6 +214,60 @@ export function CampusBarChart({
   );
 }
 
+export function CampusPerformanceChart({
+  data
+}: {
+  data: Array<{ campus: string; averageGpa: number | null; count: number }>;
+}) {
+  const chartData = data
+    .map((row) => ({
+      campus: row.campus,
+      enrollment: row.count,
+      averageGpa: row.averageGpa == null ? null : Number(row.averageGpa.toFixed(2))
+    }))
+    .sort((a, b) => b.enrollment - a.enrollment);
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={chartData} margin={{ left: 8, right: 12 }} barCategoryGap="24%">
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey="campus"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(value) => formatCampusName(String(value))}
+          interval={0}
+          angle={-18}
+          textAnchor="end"
+          height={72}
+          tickMargin={10}
+        />
+        <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} domain={[0, 4]} />
+        <Tooltip
+          labelFormatter={(label) => formatCampusName(String(label))}
+          formatter={(value, name) => {
+            if (name === "averageGpa") return formatGpa(Number(value));
+            return formatNumber(Number(value));
+          }}
+        />
+        <Legend
+          formatter={(value) => (value === "enrollment" ? "Enrollment" : "Average GPA")}
+        />
+        <Bar yAxisId="left" dataKey="enrollment" fill="#2563eb" radius={[6, 6, 0, 0]} />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="averageGpa"
+          stroke="#10b981"
+          strokeWidth={2.5}
+          dot={{ r: 4 }}
+          connectNulls
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function StudentTypeDonutChart({
   data,
   selectedStudentType,
@@ -280,6 +340,51 @@ export function CategoryDonutChart({
           innerRadius={55}
           outerRadius={90}
           paddingAngle={2}
+          labelLine={false}
+          label={piePercentLabel}
+        >
+          {data.map((entry, index) => (
+            <Cell
+              key={`${String(entry[labelKey])}-${index}`}
+              fill={palette[index % palette.length]}
+              stroke="#fff"
+              strokeWidth={1}
+            />
+          ))}
+        </Pie>
+        <Tooltip formatter={(value) => formatNumber(Number(value))} />
+        <Legend
+          wrapperStyle={{ fontSize: 12 }}
+          formatter={(value) => {
+            const item = data.find((d) => String(d[labelKey]) === String(value));
+            const count = Number(item?.count ?? 0);
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            return `${value} (${pct}%)`;
+          }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CategoryPieChart({
+  data,
+  labelKey
+}: {
+  data: Array<Record<string, string | number>>;
+  labelKey: string;
+}) {
+  const total = data.reduce((sum, item) => sum + Number(item.count ?? 0), 0);
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="count"
+          nameKey={labelKey}
+          innerRadius={0}
+          outerRadius={95}
+          paddingAngle={1}
           labelLine={false}
           label={piePercentLabel}
         >
@@ -546,9 +651,12 @@ export function SemesterEnrollmentTrendChart({
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} />
+        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} tickFormatter={(v) => formatSemesterLabel(String(v))} />
         <YAxis tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(value) => formatNumber(Number(value))} />
+        <Tooltip
+          formatter={(value) => formatNumber(Number(value))}
+          labelFormatter={(label) => formatSemesterLabel(String(label))}
+        />
         <Area
           type="monotone"
           dataKey="totalStudents"
@@ -589,7 +697,7 @@ export function SemesterMetricLineChart({
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ left: 8, right: 12 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} />
+        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} tickFormatter={(v) => formatSemesterLabel(String(v))} />
         <YAxis
           tick={{ fontSize: 11 }}
           tickFormatter={yFormatter}
@@ -598,12 +706,75 @@ export function SemesterMetricLineChart({
           formatter={(value) =>
             yFormatter ? yFormatter(Number(value)) : formatNumber(Number(value))
           }
+          labelFormatter={(label) => formatSemesterLabel(String(label))}
         />
         <Line
           type="monotone"
           dataKey={metricKey}
           stroke={stroke}
           strokeWidth={2.5}
+          dot={{ r: 4 }}
+          activeDot={{ r: 6 }}
+          connectNulls
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ForecastLineChart({
+  data,
+  actualKey,
+  forecastKey,
+  actualLabel = "Actual",
+  forecastLabel = "Forecast",
+  actualStroke = "#2563eb",
+  forecastStroke = "#10b981",
+  yFormatter
+}: {
+  data: Array<Record<string, string | number | null>>;
+  actualKey: string;
+  forecastKey: string;
+  actualLabel?: string;
+  forecastLabel?: string;
+  actualStroke?: string;
+  forecastStroke?: string;
+  yFormatter?: (value: number) => string;
+}) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ left: 8, right: 12 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis
+          dataKey="semesterLabel"
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => formatSemesterLabel(String(v))}
+        />
+        <YAxis tick={{ fontSize: 11 }} tickFormatter={yFormatter} />
+        <Tooltip
+          formatter={(value) =>
+            yFormatter ? yFormatter(Number(value)) : formatNumber(Number(value))
+          }
+          labelFormatter={(label) => formatSemesterLabel(String(label))}
+        />
+        <Legend />
+        <Line
+          type="monotone"
+          name={actualLabel}
+          dataKey={actualKey}
+          stroke={actualStroke}
+          strokeWidth={2.5}
+          dot={{ r: 4 }}
+          activeDot={{ r: 6 }}
+          connectNulls
+        />
+        <Line
+          type="monotone"
+          name={forecastLabel}
+          dataKey={forecastKey}
+          stroke={forecastStroke}
+          strokeWidth={2.5}
+          strokeDasharray="6 4"
           dot={{ r: 4 }}
           activeDot={{ r: 6 }}
           connectNulls
@@ -631,10 +802,11 @@ export function SemesterComparisonBarChart({
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={chartData} margin={{ left: 8, right: 12 }} barCategoryGap="24%">
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} />
+        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} tickFormatter={(v) => formatSemesterLabel(String(v))} />
         <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
         <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
         <Tooltip
+          labelFormatter={(label) => formatSemesterLabel(String(label))}
           formatter={(value, name) =>
             name === "dualEnrollmentPct"
               ? `${Number(value).toFixed(1)}%`
@@ -649,6 +821,118 @@ export function SemesterComparisonBarChart({
         <Bar yAxisId="left" dataKey="campusesRepresented" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
         <Bar yAxisId="right" dataKey="dualEnrollmentPct" fill="#10b981" radius={[6, 6, 0, 0]} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function RetentionTrendChart({
+  data
+}: {
+  data: Array<{
+    semesterLabel: string;
+    returningCount: number;
+    newCount: number;
+    returningPct: number | null;
+  }>;
+}) {
+  const chartData = data.map((row) => ({
+    ...row,
+    semesterLabel: formatSemesterLabel(row.semesterLabel),
+    returningPctDisplay: row.returningPct == null ? null : Number((row.returningPct * 100).toFixed(1))
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={chartData} margin={{ left: 8, right: 12 }} barCategoryGap="22%">
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} />
+        <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+        <Tooltip
+          formatter={(value, name) => {
+            if (name === "returningPctDisplay") return `${Number(value).toFixed(1)}%`;
+            return formatNumber(Number(value));
+          }}
+        />
+        <Legend
+          formatter={(value) => {
+            if (value === "returningCount") return "Returning";
+            if (value === "newCount") return "New";
+            return "Returning %";
+          }}
+        />
+        <Bar yAxisId="left" dataKey="returningCount" stackId="retention" fill="#2563eb" radius={[6, 6, 0, 0]} />
+        <Bar yAxisId="left" dataKey="newCount" stackId="retention" fill="#10b981" radius={[6, 6, 0, 0]} />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="returningPctDisplay"
+          stroke="#f59e0b"
+          strokeWidth={2}
+          dot={{ r: 3 }}
+          connectNulls
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CohortTrackingChart({
+  data
+}: {
+  data: Array<{
+    semesterLabel: string;
+    persistedCount: number;
+    persistenceRate: number | null;
+    averageGpa: number | null;
+  }>;
+}) {
+  const chartData = data.map((row) => ({
+    ...row,
+    semesterLabel: formatSemesterLabel(row.semesterLabel),
+    persistencePct: row.persistenceRate == null ? null : Number((row.persistenceRate * 100).toFixed(1))
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={chartData} margin={{ left: 8, right: 12 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="semesterLabel" tick={{ fontSize: 11 }} />
+        <YAxis yAxisId="left" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} domain={[0, 4]} />
+        <Tooltip
+          formatter={(value, name) => {
+            if (name === "persistencePct") return `${Number(value).toFixed(1)}%`;
+            if (name === "averageGpa") return formatGpa(Number(value));
+            return formatNumber(Number(value));
+          }}
+        />
+        <Legend
+          formatter={(value) => {
+            if (value === "persistencePct") return "Persistence %";
+            if (value === "averageGpa") return "Cohort GPA";
+            return String(value);
+          }}
+        />
+        <Line
+          yAxisId="left"
+          type="monotone"
+          dataKey="persistencePct"
+          stroke="#8b5cf6"
+          strokeWidth={2.5}
+          dot={{ r: 4 }}
+          connectNulls
+        />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="averageGpa"
+          stroke="#10b981"
+          strokeWidth={2.5}
+          dot={{ r: 4 }}
+          connectNulls
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

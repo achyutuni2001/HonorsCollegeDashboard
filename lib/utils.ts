@@ -39,3 +39,8 @@ export function formatClassStanding(value: string | null | undefined) {
   };
   return map[normalized] ?? value;
 }
+
+export function formatSemesterLabel(value: string | null | undefined) {
+  if (!value) return "Unknown Semester";
+  return value.replace(/\.(csv|xlsx|xls)$/i, "").trim();
+}
